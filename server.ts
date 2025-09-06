@@ -11,13 +11,13 @@ app.use(express.json({ limit: '1mb' }))
 
 const anthropic = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY })
 
+
 app.post('/api/summarize', async (req, res) => {
   try {
     const { text } = req.body ?? {}
     if (!text || typeof text !== 'string' || !text.trim()) {
       return res.status(400).json({ error: 'Missing text' })
     }
-
     const prompt = `Tu es un assistant qui rédige une publication LinkedIn concise, claire et engageante en français, à partir du texte fourni.\n\nExigences:\n- 1 à 2 paragraphes courts (max ~120-160 mots au total)\n- Ton professionnel, moderne, accessible\n- Pas d’exagération ni d’emojis\n- Inclure 2-4 hashtags pertinents à la fin\n\nTexte source:\n"""\n${text}\n"""\n\nRédige la publication maintenant :`
 
     const msg = await anthropic.messages.create({
