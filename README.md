@@ -3,6 +3,7 @@ Un générateur de publications LinkedIn à partir d'articles de blog ou de text
 ## Stack technique
 
 - React 
+- Typescript
 - TailindCSS
 - Anthropic API (Claude)
 - Supabase
