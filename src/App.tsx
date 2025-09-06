@@ -3,17 +3,20 @@ import { useState } from 'react'
 function App() {
   const [input, setInput] = useState('')
   const [result, setResult] = useState<string>('')
+  const [parsed, setParsed] = useState<{ title: string; summaries: string[] } | null>(null)
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string>('')
 
   async function handleSummarize() {
     if (!input.trim()) {
       setResult('')
+      setParsed(null)
       return
     }
     setLoading(true)
     setError('')
     setResult('')
+    setParsed(null)
     try {
       const resp = await fetch('/api/summarize', {
         method: 'POST',
@@ -25,7 +28,27 @@ function App() {
         throw new Error(data?.error || `HTTP ${resp.status}`)
       }
       const data = await resp.json()
-      setResult(data.result || '')
+      // Prefer structured response
+      if (data && typeof data.title === 'string' && Array.isArray(data.summaries)) {
+        setParsed({ title: data.title, summaries: data.summaries })
+        setResult(data.raw || '')
+        return
+      }
+      const raw = data.raw ?? data.result ?? ''
+      setResult(raw)
+      // Try to parse strict JSON { title, summaries }
+      try {
+        const obj = JSON.parse(raw)
+        const title = typeof obj?.title === 'string' ? obj.title : ''
+        const summaries = Array.isArray(obj?.summaries) ? obj.summaries.filter((s: any) => typeof s === 'string') : []
+        if (title && summaries.length > 0) {
+          setParsed({ title, summaries })
+        } else {
+          setParsed(null)
+        }
+      } catch {
+        setParsed(null)
+      }
     } catch (e: any) {
       setError(e?.message || 'Une erreur est survenue')
     } finally {
@@ -33,11 +56,23 @@ function App() {
     }
   }
 
-  async function handleCopy() {
-    if (!result) return
+  async function handleCopyAll() {
+    const textToCopy = parsed ? [parsed.title, ...parsed.summaries.slice(0, 3)].join('\n\n') : result
+    if (!textToCopy) return
     try {
-      await navigator.clipboard.writeText(result)
-    } catch (e) {
+      await navigator.clipboard.writeText(textToCopy)
+    } catch {
+      // noop
+    }
+  }
+
+  async function handleCopySummary(index: number) {
+    if (!parsed) return
+    const summary = parsed.summaries[index]
+    if (!summary) return
+    try {
+      await navigator.clipboard.writeText(summary)
+    } catch {
       // noop
     }
   }
@@ -86,7 +121,7 @@ function App() {
                 </button>
                 <button
                   className="inline-flex items-center rounded-xl border border-slate-700 bg-slate-800 px-3.5 py-2 text-slate-100 hover:bg-slate-700 focus:outline-none focus:ring-2 focus:ring-slate-600/40 disabled:opacity-60 disabled:cursor-not-allowed"
-                  onClick={() => { setInput(''); setResult(''); setError('') }}
+                  onClick={() => { setInput(''); setResult(''); setError(''); setParsed(null) }}
                   disabled={!input && !result && !error}
                 >
                   Effacer
@@ -97,19 +132,19 @@ function App() {
 
           <section className="flex flex-col gap-3">
             <div className="flex items-center justify-between">
-              <label className="text-sm font-medium text-slate-200">Publication</label>
+              <label className="text-sm font-medium text-slate-200">Publications</label>
               <div className="flex items-center gap-2">
                 <button
                   className="inline-flex items-center rounded-lg border border-slate-700 bg-slate-800 px-2.5 py-1.5 text-xs text-slate-200 hover:bg-slate-700 focus:outline-none focus:ring-2 focus:ring-slate-600/40 disabled:opacity-60 disabled:cursor-not-allowed"
-                  onClick={handleCopy}
-                  disabled={!result}
+                  onClick={handleCopyAll}
+                  disabled={!result && !parsed}
                   title="Copier"
                 >
                   Copier
                 </button>
               </div>
             </div>
-            <div className="min-h-48 rounded-xl border border-slate-700/70 bg-slate-950/50 text-slate-100 p-4 whitespace-pre-wrap">
+            <div className="min-h-48 rounded-xl border border-slate-700/70 bg-slate-950/50 text-slate-100 p-4">
               {loading ? (
                 <div className="space-y-2">
                   <div className="h-3 w-2/3 animate-pulse rounded bg-slate-700/60"></div>
@@ -118,8 +153,30 @@ function App() {
                 </div>
               ) : error ? (
                 <div className="text-sm text-red-400">Erreur: {error}</div>
+              ) : parsed ? (
+                <div className="space-y-4">
+                  <h3 className="text-base font-semibold text-slate-100">{parsed.title}</h3>
+                  <ol className="space-y-3">
+                    {parsed.summaries.slice(0, 3).map((s, idx) => (
+                      <li key={idx} className="rounded-lg border border-slate-800 bg-slate-900/50 p-3">
+                        <div className="mb-2 flex items-center justify-between text-xs text-slate-400">
+                          <span>Variante {idx + 1}</span>
+                          <button
+                            className="inline-flex items-center rounded-md border border-slate-700 bg-slate-800 px-2 py-1 text-[11px] text-slate-200 hover:bg-slate-700 focus:outline-none focus:ring-2 focus:ring-slate-600/40"
+                            onClick={() => handleCopySummary(idx)}
+                          >
+                            Copier
+                          </button>
+                        </div>
+                        <div className="whitespace-pre-wrap text-sm text-slate-100">{s}</div>
+                      </li>
+                    ))}
+                  </ol>
+                </div>
               ) : (
-                result || <span className="text-sm text-slate-400">Le résumé apparaîtra ici.</span>
+                <div className="whitespace-pre-wrap text-sm text-slate-400">
+                  {result || <span>Le résumé apparaîtra ici.</span>}
+                </div>
               )}
             </div>
           </section>
