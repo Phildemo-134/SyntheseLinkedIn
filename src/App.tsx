@@ -3,16 +3,34 @@ import { useState } from 'react'
 function App() {
   const [input, setInput] = useState('')
   const [result, setResult] = useState<string>('')
+  const [loading, setLoading] = useState(false)
+  const [error, setError] = useState<string>('')
 
-  function handleSummarize() {
+  async function handleSummarize() {
     if (!input.trim()) {
       setResult('')
       return
     }
-    const normalized = input.trim().replace(/\s+/g, ' ')
-    const max = 220
-    const preview = normalized.slice(0, max)
-    setResult(`Résumé: ${preview}${normalized.length > max ? '…' : ''}`)
+    setLoading(true)
+    setError('')
+    setResult('')
+    try {
+      const resp = await fetch('/api/summarize', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ text: input }),
+      })
+      if (!resp.ok) {
+        const data = await resp.json().catch(() => ({}))
+        throw new Error(data?.error || `HTTP ${resp.status}`)
+      }
+      const data = await resp.json()
+      setResult(data.result || '')
+    } catch (e: any) {
+      setError(e?.message || 'Une erreur est survenue')
+    } finally {
+      setLoading(false)
+    }
   }
 
   return (
@@ -34,10 +52,10 @@ function App() {
             rows={10}
           />
           <div className="flex gap-2">
-            <button className="inline-flex items-center rounded-lg bg-blue-600 px-3 py-2 text-white hover:bg-blue-500 disabled:opacity-60 disabled:cursor-not-allowed" onClick={handleSummarize} disabled={!input.trim()}>
+            <button className="inline-flex items-center rounded-lg bg-blue-600 px-3 py-2 text-white hover:bg-blue-500 disabled:opacity-60 disabled:cursor-not-allowed" onClick={handleSummarize} disabled={!input.trim() || loading}>
               Synthétiser
             </button>
-            <button className="inline-flex items-center rounded-lg border border-slate-700 bg-slate-800 px-3 py-2 text-slate-100 hover:bg-slate-700 disabled:opacity-60 disabled:cursor-not-allowed" onClick={() => { setInput(''); setResult('') }} disabled={!input && !result}>
+            <button className="inline-flex items-center rounded-lg border border-slate-700 bg-slate-800 px-3 py-2 text-slate-100 hover:bg-slate-700 disabled:opacity-60 disabled:cursor-not-allowed" onClick={() => { setInput(''); setResult(''); setError('') }} disabled={!input && !result && !error}>
               Effacer
             </button>
           </div>
@@ -45,8 +63,8 @@ function App() {
 
         <section className="flex flex-col gap-2">
           <label className="font-semibold">Publication</label>
-          <div className="min-h-40 rounded-lg border border-slate-700 bg-slate-900 text-slate-100 p-3">
-            {result || 'Le résumé apparaîtra ici.'}
+          <div className="min-h-40 rounded-lg border border-slate-700 bg-slate-900 text-slate-100 p-3 whitespace-pre-wrap">
+            {loading ? 'Génération en cours…' : (error ? `Erreur: ${error}` : (result || 'Le résumé apparaîtra ici.'))}
           </div>
         </section>
       </main>
