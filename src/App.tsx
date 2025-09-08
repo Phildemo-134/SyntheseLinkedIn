@@ -92,7 +92,7 @@ function App() {
       </header>
 
       <main className="rounded-2xl border border-slate-800 bg-slate-900/40 shadow-xl shadow-slate-950/40 backdrop-blur-sm divide-y divide-slate-800">
-        <div className="grid grid-cols-1 gap-6 p-6 md:grid-cols-2 md:gap-8">
+        <div className="grid grid-cols-1 gap-6 p-6">
           <section className="flex flex-col gap-3">
             <label htmlFor="source" className="text-sm font-medium text-slate-200">Texte source</label>
             <textarea
@@ -133,18 +133,8 @@ function App() {
           <section className="flex flex-col gap-3">
             <div className="flex items-center justify-between">
               <label className="text-sm font-medium text-slate-200">Publications</label>
-              <div className="flex items-center gap-2">
-                <button
-                  className="inline-flex items-center rounded-lg border border-slate-700 bg-slate-800 px-2.5 py-1.5 text-xs text-slate-200 hover:bg-slate-700 focus:outline-none focus:ring-2 focus:ring-slate-600/40 disabled:opacity-60 disabled:cursor-not-allowed"
-                  onClick={handleCopyAll}
-                  disabled={!result && !parsed}
-                  title="Copier"
-                >
-                  Copier
-                </button>
-              </div>
             </div>
-            <div className="min-h-48 rounded-xl border border-slate-700/70 bg-slate-950/50 text-slate-100 p-4">
+            <div className="min-h-48 rounded-xl bg-slate-950/50 text-slate-100">
               {loading ? (
                 <div className="space-y-2">
                   <div className="h-3 w-2/3 animate-pulse rounded bg-slate-700/60"></div>
@@ -155,10 +145,9 @@ function App() {
                 <div className="text-sm text-red-400">Erreur: {error}</div>
               ) : parsed ? (
                 <div className="space-y-4">
-                  <h3 className="text-base font-semibold text-slate-100">{parsed.title}</h3>
-                  <ol className="space-y-3">
+                  <ol className="grid grid-cols-3 gap-3">
                     {parsed.summaries.slice(0, 3).map((s, idx) => (
-                      <li key={idx} className="rounded-lg border border-slate-800 bg-slate-900/50 p-3">
+                      <li key={idx} className="rounded-lg border border-slate-800 bg-slate-900/50 p-3 h-full">
                         <div className="mb-2 flex items-center justify-between text-xs text-slate-400">
                           <span>Variante {idx + 1}</span>
                           <button
