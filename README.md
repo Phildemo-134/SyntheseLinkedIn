@@ -16,3 +16,4 @@ Un générateur de publications LinkedIn à partir d'articles de blog ou de text
 3. Envoyer une requête à l'API Anthropic Claude
 4. Afficher le résultat dans une section Publications
 5. Sauvegarder les publications dans une base de données
+

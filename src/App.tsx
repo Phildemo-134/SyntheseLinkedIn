@@ -56,25 +56,14 @@ function App() {
     }
   }
 
-  async function handleCopyAll() {
-    const textToCopy = parsed ? [parsed.title, ...parsed.summaries.slice(0, 3)].join('\n\n') : result
-    if (!textToCopy) return
-    try {
-      await navigator.clipboard.writeText(textToCopy)
-    } catch {
-      // noop
-    }
-  }
+  // Removed old copy-all functionality
 
-  async function handleCopySummary(index: number) {
+  function handleCopySummary(index: number) {
     if (!parsed) return
     const summary = parsed.summaries[index]
     if (!summary) return
-    try {
-      await navigator.clipboard.writeText(summary)
-    } catch {
-      // noop
-    }
+    const shareUrl = `https://www.linkedin.com/feed/?shareActive=true&text=${encodeURIComponent(summary)}`
+    window.open(shareUrl, '_blank', 'noopener,noreferrer')
   }
 
   const charactersCount = input.length
@@ -154,7 +143,18 @@ function App() {
                             className="inline-flex items-center rounded-md border border-slate-700 bg-slate-800 px-2 py-1 text-[11px] text-slate-200 hover:bg-slate-700 focus:outline-none focus:ring-2 focus:ring-slate-600/40"
                             onClick={() => handleCopySummary(idx)}
                           >
-                            Copier
+                            <span className="inline-flex items-center gap-1.5">
+                              <svg
+                                xmlns="http://www.w3.org/2000/svg"
+                                viewBox="0 0 24 24"
+                                className="h-3.5 w-3.5 text-[#0A66C2]"
+                                fill="currentColor"
+                                aria-hidden="true"
+                              >
+                                <path d="M20.447 20.452H17.21v-5.569c0-1.328-.027-3.037-1.852-3.037-1.853 0-2.136 1.445-2.136 2.939v5.667H9v-11.5h3.112v1.571h.045c.434-.82 1.494-1.685 3.073-1.685 3.29 0 3.895 2.165 3.895 4.983v6.631zM5.337 7.433a1.804 1.804 0 11-.002-3.608 1.804 1.804 0 01.002 3.608zM6.777 20.452H3.894v-11.5h2.883v11.5zM22.225 0H1.771C.792 0 0 .774 0 1.729v20.542C0 23.227.792 24 1.771 24h20.451C23.2 24 24 23.227 24 22.271V1.729C24 .774 23.2 0 22.222 0h.003z"/>
+                              </svg>
+                              <span>LinkedIn</span>
+                            </span>
                           </button>
                         </div>
                         <div className="whitespace-pre-wrap text-sm text-slate-100">{s}</div>
