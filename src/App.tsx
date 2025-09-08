@@ -1,4 +1,5 @@
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
+import { supabase } from './lib/supabaseClient'
 
 function App() {
   const [input, setInput] = useState('')
@@ -6,6 +7,11 @@ function App() {
   const [parsed, setParsed] = useState<{ title: string; summaries: string[] } | null>(null)
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string>('')
+  const [activeTab, setActiveTab] = useState<'generated' | 'saved'>('generated')
+  const [savingIndex, setSavingIndex] = useState<number | null>(null)
+  const [saved, setSaved] = useState<Array<{ id: string; content: string; title: string | null; created_at: string | null }>>([])
+  const [savedLoading, setSavedLoading] = useState(false)
+  const [savedError, setSavedError] = useState<string>('')
 
   async function handleSummarize() {
     if (!input.trim()) {
@@ -68,6 +74,46 @@ function App() {
 
   const charactersCount = input.length
 
+  async function savePublication(content: string, title: string | null) {
+    try {
+      setSavedError('')
+      const { error: insertError } = await supabase
+        .from('saved_posts')
+        .insert([{ content, title }])
+      if (insertError) throw insertError
+    } catch (e: any) {
+      setSavedError(e?.message || 'Erreur lors de la sauvegarde')
+    }
+  }
+
+  async function fetchSaved() {
+    try {
+      setSavedLoading(true)
+      setSavedError('')
+      const { data, error: selectError } = await supabase
+        .from('saved_posts')
+        .select('id, content, title, created_at')
+        .order('created_at', { ascending: false })
+      if (selectError) throw selectError
+      setSaved((data || []).map((row: any) => ({
+        id: String(row.id),
+        content: String(row.content || ''),
+        title: row.title ?? null,
+        created_at: row.created_at ?? null,
+      })))
+    } catch (e: any) {
+      setSavedError(e?.message || 'Erreur lors du chargement des contenus sauvegardés')
+    } finally {
+      setSavedLoading(false)
+    }
+  }
+
+  useEffect(() => {
+    if (activeTab === 'saved') {
+      fetchSaved()
+    }
+  }, [activeTab])
+
   return (
     <div className="min-h-screen mx-auto max-w-5xl px-6 py-10 flex flex-col gap-8">
       <header className="flex flex-col gap-2">
@@ -121,51 +167,105 @@ function App() {
 
           <section className="flex flex-col gap-3">
             <div className="flex items-center justify-between">
-              <label className="text-sm font-medium text-slate-200">Publications</label>
+              <label className="text-sm font-medium text-slate-200">{activeTab === 'generated' ? 'Publications' : 'Contenu sauvegardé'}</label>
+              <div className="flex items-center gap-1">
+                <button
+                  className={`inline-flex items-center rounded-md px-3 py-1.5 text-xs border ${activeTab === 'generated' ? 'bg-slate-200 text-slate-900 border-slate-300' : 'bg-slate-800 text-slate-200 border-slate-700 hover:bg-slate-700'}`}
+                  onClick={() => setActiveTab('generated')}
+                >
+                  Publications
+                </button>
+                <button
+                  className={`inline-flex items-center rounded-md px-3 py-1.5 text-xs border ${activeTab === 'saved' ? 'bg-slate-200 text-slate-900 border-slate-300' : 'bg-slate-800 text-slate-200 border-slate-700 hover:bg-slate-700'}`}
+                  onClick={() => setActiveTab('saved')}
+                >
+                  Contenu sauvegardé
+                </button>
+              </div>
             </div>
             <div className="min-h-48 rounded-xl bg-slate-950/50 text-slate-100">
-              {loading ? (
-                <div className="space-y-2">
-                  <div className="h-3 w-2/3 animate-pulse rounded bg-slate-700/60"></div>
-                  <div className="h-3 w-5/6 animate-pulse rounded bg-slate-700/50"></div>
-                  <div className="h-3 w-3/4 animate-pulse rounded bg-slate-700/40"></div>
-                </div>
-              ) : error ? (
-                <div className="text-sm text-red-400">Erreur: {error}</div>
-              ) : parsed ? (
-                <div className="space-y-4">
-                  <ol className="grid grid-cols-3 gap-3">
-                    {parsed.summaries.slice(0, 3).map((s, idx) => (
-                      <li key={idx} className="rounded-lg border border-slate-800 bg-slate-900/50 p-3 h-full">
-                        <div className="mb-2 flex items-center justify-between text-xs text-slate-400">
-                          <span>Variante {idx + 1}</span>
-                          <button
-                            className="inline-flex items-center rounded-md border border-slate-700 bg-slate-800 px-2 py-1 text-[11px] text-slate-200 hover:bg-slate-700 focus:outline-none focus:ring-2 focus:ring-slate-600/40"
-                            onClick={() => handleCopySummary(idx)}
-                          >
-                            <span className="inline-flex items-center gap-1.5">
-                              <svg
-                                xmlns="http://www.w3.org/2000/svg"
-                                viewBox="0 0 24 24"
-                                className="h-3.5 w-3.5 text-[#0A66C2]"
-                                fill="currentColor"
-                                aria-hidden="true"
+              {activeTab === 'generated' ? (
+                loading ? (
+                  <div className="space-y-2">
+                    <div className="h-3 w-2/3 animate-pulse rounded bg-slate-700/60"></div>
+                    <div className="h-3 w-5/6 animate-pulse rounded bg-slate-700/50"></div>
+                    <div className="h-3 w-3/4 animate-pulse rounded bg-slate-700/40"></div>
+                  </div>
+                ) : error ? (
+                  <div className="text-sm text-red-400">Erreur: {error}</div>
+                ) : parsed ? (
+                  <div className="space-y-4">
+                    <ol className="grid grid-cols-3 gap-3">
+                      {parsed.summaries.slice(0, 3).map((s, idx) => (
+                        <li key={idx} className="rounded-lg border border-slate-800 bg-slate-900/50 p-3 h-full">
+                          <div className="mb-2 flex items-center justify-between text-xs text-slate-400">
+                            <span>Variante {idx + 1}</span>
+                            <div className="flex items-center gap-1">
+                              <button
+                                className="inline-flex items-center rounded-md border border-slate-700 bg-slate-800 px-2 py-1 text-[11px] text-slate-200 hover:bg-slate-700 focus:outline-none focus:ring-2 focus:ring-slate-600/40"
+                                onClick={() => handleCopySummary(idx)}
                               >
-                                <path d="M20.447 20.452H17.21v-5.569c0-1.328-.027-3.037-1.852-3.037-1.853 0-2.136 1.445-2.136 2.939v5.667H9v-11.5h3.112v1.571h.045c.434-.82 1.494-1.685 3.073-1.685 3.29 0 3.895 2.165 3.895 4.983v6.631zM5.337 7.433a1.804 1.804 0 11-.002-3.608 1.804 1.804 0 01.002 3.608zM6.777 20.452H3.894v-11.5h2.883v11.5zM22.225 0H1.771C.792 0 0 .774 0 1.729v20.542C0 23.227.792 24 1.771 24h20.451C23.2 24 24 23.227 24 22.271V1.729C24 .774 23.2 0 22.222 0h.003z"/>
-                              </svg>
-                              <span>LinkedIn</span>
-                            </span>
-                          </button>
-                        </div>
-                        <div className="whitespace-pre-wrap text-sm text-slate-100">{s}</div>
-                      </li>
-                    ))}
-                  </ol>
-                </div>
+                                <span className="inline-flex items-center gap-1.5">
+                                  <svg
+                                    xmlns="http://www.w3.org/2000/svg"
+                                    viewBox="0 0 24 24"
+                                    className="h-3.5 w-3.5 text-[#0A66C2]"
+                                    fill="currentColor"
+                                    aria-hidden="true"
+                                  >
+                                    <path d="M20.447 20.452H17.21v-5.569c0-1.328-.027-3.037-1.852-3.037-1.853 0-2.136 1.445-2.136 2.939v5.667H9v-11.5h3.112v1.571h.045c.434-.82 1.494-1.685 3.073-1.685 3.29 0 3.895 2.165 3.895 4.983v6.631zM5.337 7.433a1.804 1.804 0 11-.002-3.608 1.804 1.804 0 01.002 3.608zM6.777 20.452H3.894v-11.5h2.883v11.5zM22.225 0H1.771C.792 0 0 .774 0 1.729v20.542C0 23.227.792 24 1.771 24h20.451C23.2 24 24 23.227 24 22.271V1.729C24 .774 23.2 0 22.222 0h.003z"/>
+                                  </svg>
+                                  <span>LinkedIn</span>
+                                </span>
+                              </button>
+                              <button
+                                className="inline-flex items-center rounded-md border border-emerald-700 bg-emerald-800 px-2 py-1 text-[11px] text-emerald-100 hover:bg-emerald-700 focus:outline-none focus:ring-2 focus:ring-emerald-600/40 disabled:opacity-60 disabled:cursor-not-allowed"
+                                onClick={async () => {
+                                  setSavingIndex(idx)
+                                  await savePublication(s, parsed?.title ?? null)
+                                  setSavingIndex(null)
+                                }}
+                                disabled={savingIndex === idx}
+                              >
+                                {savingIndex === idx ? 'Enregistrement…' : 'Sauvegarder'}
+                              </button>
+                            </div>
+                          </div>
+                          <div className="whitespace-pre-wrap text-sm text-slate-100">{s}</div>
+                        </li>
+                      ))}
+                    </ol>
+                  </div>
+                ) : (
+                  <div className="whitespace-pre-wrap text-sm text-slate-400">
+                    {result || <span>Le résumé apparaîtra ici.</span>}
+                  </div>
+                )
               ) : (
-                <div className="whitespace-pre-wrap text-sm text-slate-400">
-                  {result || <span>Le résumé apparaîtra ici.</span>}
-                </div>
+                savedLoading ? (
+                  <div className="space-y-2">
+                    <div className="h-3 w-2/3 animate-pulse rounded bg-slate-700/60"></div>
+                    <div className="h-3 w-5/6 animate-pulse rounded bg-slate-700/50"></div>
+                    <div className="h-3 w-3/4 animate-pulse rounded bg-slate-700/40"></div>
+                  </div>
+                ) : savedError ? (
+                  <div className="text-sm text-red-400">Erreur: {savedError}</div>
+                ) : saved.length > 0 ? (
+                  <div className="space-y-4">
+                    <ol className="grid grid-cols-3 gap-3">
+                      {saved.map((item) => (
+                        <li key={item.id} className="rounded-lg border border-slate-800 bg-slate-900/50 p-3 h-full">
+                          <div className="mb-2 flex items-center justify-between text-xs text-slate-400">
+                            <span>{item.title || 'Publication'}</span>
+                          </div>
+                          <div className="whitespace-pre-wrap text-sm text-slate-100">{item.content}</div>
+                        </li>
+                      ))}
+                    </ol>
+                  </div>
+                ) : (
+                  <div className="text-sm text-slate-400 p-3">Aucun contenu sauvegardé.</div>
+                )
               )}
             </div>
           </section>
